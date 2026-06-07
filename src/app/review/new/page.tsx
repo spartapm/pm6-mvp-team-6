@@ -1,0 +1,156 @@
+"use client";
+
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useRequireAuth } from "@/lib/useSession";
+import { createReview, getPlace, upsertPlace } from "@/lib/store";
+import { searchPlaces } from "@/lib/kakao";
+import type { KakaoPlace, Place } from "@/lib/types";
+import { useToast } from "@/components/Toast";
+import { FullSpinner, Spinner } from "@/components/Spinner";
+import { ReviewEditor } from "@/components/ReviewEditor";
+import { ChevronLeftIcon, SearchIcon } from "@/components/icons";
+
+function NewReview() {
+  const { user, ready } = useRequireAuth();
+  const router = useRouter();
+  const toast = useToast();
+  const params = useSearchParams();
+  const placeIdParam = params.get("placeId");
+
+  const [place, setPlace] = useState<Place | null>(null);
+  const [loadingPlace, setLoadingPlace] = useState(!!placeIdParam);
+
+  useEffect(() => {
+    if (!placeIdParam) return;
+    getPlace(placeIdParam)
+      .then((p) => setPlace(p))
+      .finally(() => setLoadingPlace(false));
+  }, [placeIdParam]);
+
+  if (!ready || !user) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Spinner className="text-key" />
+      </div>
+    );
+  }
+
+  if (loadingPlace) return <FullSpinner />;
+
+  // 장소 미선택 → 장소 검색
+  if (!place) {
+    return <PlacePicker onPick={setPlace} />;
+  }
+
+  return (
+    <ReviewEditor
+      mode="new"
+      user={user}
+      placeName={place.name}
+      onSubmit={async (content, images) => {
+        await createReview({ userId: user.id, placeId: place.id, content, images });
+        toast("기록을 발행했어요.");
+        router.replace("/map");
+      }}
+    />
+  );
+}
+
+function PlacePicker({ onPick }: { onPick: (p: Place) => void }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [keyword, setKeyword] = useState("");
+  const [results, setResults] = useState<KakaoPlace[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [picking, setPicking] = useState(false);
+
+  const run = async () => {
+    const q = keyword.trim();
+    if (!q) return;
+    setSearching(true);
+    try {
+      const found = await searchPlaces(q);
+      setResults(found);
+      if (found.length === 0) toast("검색 결과가 없어요");
+    } catch {
+      toast("일치하는 장소가 없어요. 다른 키워드로 검색해보세요!");
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const pick = async (p: KakaoPlace) => {
+    setPicking(true);
+    try {
+      onPick(await upsertPlace(p));
+    } catch {
+      toast("일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요.");
+      setPicking(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-1 flex-col">
+      <header className="flex items-center gap-1 border-b border-line px-2 py-3">
+        <button
+          onClick={() => router.back()}
+          className="flex h-10 w-10 items-center justify-center text-ink"
+          aria-label="뒤로"
+        >
+          <ChevronLeftIcon className="h-6 w-6" />
+        </button>
+        <h1 className="text-base font-semibold">장소 검색</h1>
+      </header>
+
+      <div className="px-4 pt-3">
+        <div className="flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-2.5">
+          <SearchIcon className="h-5 w-5 text-sub" />
+          <input
+            autoFocus
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && run()}
+            placeholder="주소, 상호명 검색"
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-sub"
+          />
+          {(searching || picking) && <Spinner className="text-key" />}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-3">
+        {results === null ? (
+          <div className="px-2 pt-8 text-sm leading-relaxed text-sub">
+            <p className="font-semibold text-ink">장소를 검색해 보세요</p>
+            <ul className="mt-3 list-disc space-y-1 pl-5">
+              <li>최근에 방문했던 음식점, 카페, 소품샵</li>
+              <li>특별한 날 방문했던 인상적인 장소</li>
+              <li>집, 회사, 학교 주변에서 자주 가는 식당</li>
+            </ul>
+          </div>
+        ) : (
+          results.map((p) => (
+            <button
+              key={p.kakaoId}
+              onClick={() => pick(p)}
+              disabled={picking}
+              className="flex w-full flex-col items-start border-b border-line px-1 py-3 text-left last:border-0"
+            >
+              <span className="text-sm font-semibold">{p.name}</span>
+              <span className="mt-0.5 text-xs text-sub">{p.roadAddress || p.address}</span>
+              {p.category && <span className="mt-0.5 text-xs text-disabled">{p.category}</span>}
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function NewReviewPage() {
+  return (
+    <Suspense fallback={<FullSpinner />}>
+      <NewReview />
+    </Suspense>
+  );
+}
