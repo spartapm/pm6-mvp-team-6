@@ -3,7 +3,14 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signUp, uploadImage, MAX_IMAGE_BYTES } from "@/lib/store";
-import { GENDER_LABEL, isValidNickname, type Gender } from "@/lib/types";
+import {
+  GENDER_LABEL,
+  isValidNickname,
+  nicknameError,
+  formatBirthInput,
+  birthError,
+  type Gender,
+} from "@/lib/types";
 import { useToast } from "@/components/Toast";
 import { Spinner } from "@/components/Spinner";
 import { Avatar } from "@/components/Avatar";
@@ -26,7 +33,9 @@ function ProfileSetup() {
   const [submitting, setSubmitting] = useState(false);
 
   const nicknameOk = isValidNickname(nickname);
-  const canSubmit = nicknameOk && gender !== null && !submitting;
+  const nickError = nicknameError(nickname);
+  const birthErr = birthError(birth);
+  const canSubmit = nicknameOk && gender !== null && !birthErr && !submitting;
 
   const onPickAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -53,6 +62,10 @@ function ProfileSetup() {
     }
     if (!gender) {
       toast("성별을 선택해 주세요.");
+      return;
+    }
+    if (birthErr) {
+      toast(birthErr);
       return;
     }
     if (!email) {
@@ -117,8 +130,11 @@ function ProfileSetup() {
             value={nickname}
             onChange={(e) => setNickname(e.target.value.slice(0, 12))}
             placeholder="닉네임을 입력해 주세요 (2~12자)"
-            className="mt-2 w-full border-b border-line bg-transparent pb-2 text-lg outline-none placeholder:text-disabled focus:border-key"
+            className={`mt-2 w-full border-b bg-transparent pb-2 text-lg outline-none placeholder:text-disabled ${
+              nickError ? "border-like focus:border-like" : "border-line focus:border-key"
+            }`}
           />
+          {nickError && <p className="mt-2 text-xs text-like">{nickError}</p>}
         </div>
 
         {/* 성별 */}
@@ -141,10 +157,13 @@ function ProfileSetup() {
           <input
             value={birth}
             inputMode="numeric"
-            onChange={(e) => setBirth(e.target.value.slice(0, 8))}
+            onChange={(e) => setBirth(formatBirthInput(e.target.value))}
             placeholder="YY-MM-DD"
-            className="mt-2 w-full border-b border-line bg-transparent pb-2 text-lg outline-none placeholder:text-disabled focus:border-key"
+            className={`mt-2 w-full border-b bg-transparent pb-2 text-lg outline-none placeholder:text-disabled ${
+              birthErr ? "border-like focus:border-like" : "border-line focus:border-key"
+            }`}
           />
+          {birthErr && <p className="mt-2 text-xs text-like">{birthErr}</p>}
         </div>
 
         <div className="mt-auto pt-8">

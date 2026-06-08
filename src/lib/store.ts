@@ -1,13 +1,16 @@
 "use client";
 
 import { supabase, STORAGE_BUCKET } from "./supabase";
-import type {
-  Gender,
-  KakaoPlace,
-  Place,
-  Review,
-  SavedPlace,
-  User,
+import {
+  GROUP_COLORS,
+  type Gender,
+  type Group,
+  type GroupSavedPlace,
+  type KakaoPlace,
+  type Place,
+  type Review,
+  type SavedPlace,
+  type User,
 } from "./types";
 
 // =========================================================
@@ -292,21 +295,24 @@ export async function getMySavedPlaces(userId: string): Promise<SavedPlace[]> {
   return Array.from(byId.values());
 }
 
-// 프로필 별 개수: 빈별(=북마크) / 채운별(=리뷰 장소)
+// 프로필 별 개수: 빈별(=북마크만) / 채운별(=리뷰 작성 장소)
+// 리뷰를 작성한 장소는 채운 별로 집계하고 빈 별에서는 제외한다.
 export async function getStarCounts(
   userId: string
 ): Promise<{ bookmark: number; review: number }> {
   const [bm, rv] = await Promise.all([
-    supabase
-      .from("bookmarks")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId),
+    supabase.from("bookmarks").select("place_id").eq("user_id", userId),
     supabase.from("reviews").select("place_id").eq("user_id", userId),
   ]);
   const reviewPlaces = new Set(
     ((rv.data ?? []) as { place_id: string }[]).map((r) => r.place_id)
   );
-  return { bookmark: bm.count ?? 0, review: reviewPlaces.size };
+  const bookmarkOnly = new Set(
+    ((bm.data ?? []) as { place_id: string }[])
+      .map((b) => b.place_id)
+      .filter((pid) => !reviewPlaces.has(pid))
+  );
+  return { bookmark: bookmarkOnly.size, review: reviewPlaces.size };
 }
 
 // =========================================================
@@ -388,6 +394,23 @@ export async function getReview(
   if (error) throw error;
   if (!data) return null;
   return mapReview(data as unknown as ReviewRow, myUserId);
+}
+
+// 같은 장소 기록 1일 1회 제한 (00시 기준) → 오늘 이미 작성했는지
+export async function hasReviewedPlaceToday(
+  userId: string,
+  placeId: string
+): Promise<boolean> {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const { data } = await supabase
+    .from("reviews")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("place_id", placeId)
+    .gte("created_at", start.toISOString())
+    .limit(1);
+  return !!(data && data.length > 0);
 }
 
 export async function createReview(input: {
@@ -481,4 +504,232 @@ export async function uploadImage(file: File): Promise<string> {
   if (error) throw error;
   const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
   return data.publicUrl;
+}
+
+// =========================================================
+// 그룹 (공유 지도)
+// =========================================================
+type GroupRow = {
+  id: string;
+  name: string;
+  invite_code: string;
+  owner_id: string;
+};
+
+const GROUP_SELECT = "id, name, invite_code, owner_id";
+
+// 헷갈리기 쉬운 0/O, 1/I 는 제외한 초대 코드 (6자)
+function genInviteCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i = 0; i < 6; i++) {
+    s += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return s;
+}
+
+async function memberCount(groupId: string): Promise<number> {
+  const { count } = await supabase
+    .from("group_members")
+    .select("id", { count: "exact", head: true })
+    .eq("group_id", groupId);
+  return count ?? 0;
+}
+
+// 그룹의 다음 멤버 색상 (이미 쓰인 색은 건너뜀)
+async function nextGroupColor(groupId: string): Promise<string> {
+  const { data } = await supabase
+    .from("group_members")
+    .select("color")
+    .eq("group_id", groupId);
+  const used = new Set(((data ?? []) as { color: string }[]).map((m) => m.color));
+  const free = GROUP_COLORS.find((c) => !used.has(c));
+  return free ?? GROUP_COLORS[(data?.length ?? 0) % GROUP_COLORS.length];
+}
+
+// 내가 속한 그룹 목록
+export async function getMyGroups(userId: string): Promise<Group[]> {
+  const { data, error } = await supabase
+    .from("group_members")
+    .select("color, joined_at, groups:group_id ( id, name, invite_code, owner_id )")
+    .eq("user_id", userId)
+    .order("joined_at", { ascending: true });
+  if (error || !data) return [];
+
+  const rows = (data as unknown as {
+    color: string;
+    groups: GroupRow | null;
+  }[]).filter((r) => r.groups);
+
+  return Promise.all(
+    rows.map(async (r) => {
+      const g = r.groups as GroupRow;
+      return {
+        id: g.id,
+        name: g.name,
+        inviteCode: g.invite_code,
+        ownerId: g.owner_id,
+        memberCount: await memberCount(g.id),
+        myColor: r.color,
+      } satisfies Group;
+    })
+  );
+}
+
+// 그룹 만들기 (생성자가 첫 멤버로 합류)
+export async function createGroup(
+  userId: string,
+  name: string
+): Promise<{ ok: true; group: Group } | { ok: false }> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = genInviteCode();
+    const { data, error } = await supabase
+      .from("groups")
+      .insert({ name: name.trim(), invite_code: code, owner_id: userId })
+      .select(GROUP_SELECT)
+      .single();
+    if (error || !data) continue; // 초대 코드 충돌 → 재시도
+    const g = data as GroupRow;
+    const color = GROUP_COLORS[0];
+    const { error: mErr } = await supabase
+      .from("group_members")
+      .insert({ group_id: g.id, user_id: userId, color });
+    if (mErr) {
+      await supabase.from("groups").delete().eq("id", g.id);
+      return { ok: false };
+    }
+    return {
+      ok: true,
+      group: {
+        id: g.id,
+        name: g.name,
+        inviteCode: g.invite_code,
+        ownerId: g.owner_id,
+        memberCount: 1,
+        myColor: color,
+      },
+    };
+  }
+  return { ok: false };
+}
+
+// 초대 코드로 그룹 합류
+export async function joinByInviteCode(
+  userId: string,
+  code: string
+): Promise<
+  | { ok: true; group: Group }
+  | { ok: false; reason: "not_found" | "already" | "error" }
+> {
+  const c = code.trim().toUpperCase();
+  if (!c) return { ok: false, reason: "not_found" };
+
+  const { data: g } = await supabase
+    .from("groups")
+    .select(GROUP_SELECT)
+    .eq("invite_code", c)
+    .maybeSingle();
+  if (!g) return { ok: false, reason: "not_found" };
+  const group = g as GroupRow;
+
+  const { data: existing } = await supabase
+    .from("group_members")
+    .select("id")
+    .eq("group_id", group.id)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (existing) return { ok: false, reason: "already" };
+
+  const color = await nextGroupColor(group.id);
+  const { error } = await supabase
+    .from("group_members")
+    .insert({ group_id: group.id, user_id: userId, color });
+  if (error) return { ok: false, reason: "error" };
+
+  return {
+    ok: true,
+    group: {
+      id: group.id,
+      name: group.name,
+      inviteCode: group.invite_code,
+      ownerId: group.owner_id,
+      memberCount: await memberCount(group.id),
+      myColor: color,
+    },
+  };
+}
+
+export async function renameGroup(
+  groupId: string,
+  name: string
+): Promise<boolean> {
+  const { error } = await supabase
+    .from("groups")
+    .update({ name: name.trim() })
+    .eq("id", groupId);
+  return !error;
+}
+
+// 그룹 나가기 → 멤버가 0명이면 그룹 자체 삭제
+export async function leaveGroup(
+  groupId: string,
+  userId: string
+): Promise<void> {
+  await supabase
+    .from("group_members")
+    .delete()
+    .eq("group_id", groupId)
+    .eq("user_id", userId);
+  if ((await memberCount(groupId)) === 0) {
+    await supabase.from("groups").delete().eq("id", groupId);
+  }
+}
+
+// 그룹 전체 멤버가 저장한 장소 (멤버 색상으로)
+export async function getGroupSavedPlaces(
+  groupId: string
+): Promise<GroupSavedPlace[]> {
+  const { data: members } = await supabase
+    .from("group_members")
+    .select("user_id, color")
+    .eq("group_id", groupId);
+  if (!members || members.length === 0) return [];
+
+  const colorByUser = new Map<string, string>();
+  (members as { user_id: string; color: string }[]).forEach((m) =>
+    colorByUser.set(m.user_id, m.color)
+  );
+  const userIds = Array.from(colorByUser.keys());
+
+  const [bm, rv] = await Promise.all([
+    supabase.from("bookmarks").select("user_id, places(*)").in("user_id", userIds),
+    supabase.from("reviews").select("user_id, places(*)").in("user_id", userIds),
+  ]);
+
+  const byKey = new Map<string, GroupSavedPlace>();
+  const addRows = (
+    rows: { user_id: string; places: PlaceRow | null }[] | null,
+    star: "gray" | "fill"
+  ) => {
+    (rows ?? []).forEach((row) => {
+      const pr = row.places;
+      if (!pr) return;
+      const color = colorByUser.get(row.user_id) ?? GROUP_COLORS[0];
+      const key = `${pr.id}|${row.user_id}`;
+      const existing = byKey.get(key);
+      if (existing && existing.star === "fill") return; // 리뷰 우선
+      byKey.set(key, { ...mapPlace(pr), star, color });
+    });
+  };
+
+  addRows(
+    bm.data as unknown as { user_id: string; places: PlaceRow | null }[],
+    "gray"
+  );
+  addRows(
+    rv.data as unknown as { user_id: string; places: PlaceRow | null }[],
+    "fill"
+  );
+
+  return Array.from(byKey.values());
 }

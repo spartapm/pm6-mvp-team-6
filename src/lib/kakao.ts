@@ -48,6 +48,9 @@ export function loadKakao(): Promise<any> {
 }
 
 // 카카오 로컬 키워드 검색 → KakaoPlace[]
+// 1) 지도 중심 주변(반경)을 우선 검색하고
+// 2) 주변 결과가 없으면 전국 범위로 다시 검색한다.
+//    (서울에서 '거제시 식당'을 검색하는 등 먼 지역도 찾을 수 있도록)
 export async function searchPlaces(
   keyword: string,
   center?: { lat: number; lng: number }
@@ -55,6 +58,19 @@ export async function searchPlaces(
   const q = keyword.trim();
   if (!q) return [];
   const kakao = await loadKakao();
+
+  if (center) {
+    const near = await runKeywordSearch(kakao, q, center);
+    if (near.length > 0) return near;
+  }
+  return runKeywordSearch(kakao, q);
+}
+
+function runKeywordSearch(
+  kakao: any,
+  q: string,
+  center?: { lat: number; lng: number }
+): Promise<KakaoPlace[]> {
   return new Promise((resolve, reject) => {
     const places = new kakao.maps.services.Places();
     const options: any = { size: 15 };

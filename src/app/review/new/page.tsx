@@ -3,7 +3,12 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRequireAuth } from "@/lib/useSession";
-import { createReview, getPlace, upsertPlace } from "@/lib/store";
+import {
+  createReview,
+  getPlace,
+  hasReviewedPlaceToday,
+  upsertPlace,
+} from "@/lib/store";
 import { searchPlaces } from "@/lib/kakao";
 import type { KakaoPlace, Place } from "@/lib/types";
 import { useToast } from "@/components/Toast";
@@ -40,7 +45,17 @@ function NewReview() {
 
   // 장소 미선택 → 장소 검색
   if (!place) {
-    return <PlacePicker onPick={setPlace} />;
+    return (
+      <PlacePicker
+        onPick={async (p) => {
+          if (await hasReviewedPlaceToday(user.id, p.id)) {
+            toast("같은 장소에 대한 기록은 1일 1회만 가능해요. (00시 기준)");
+            return;
+          }
+          setPlace(p);
+        }}
+      />
+    );
   }
 
   return (
@@ -48,16 +63,32 @@ function NewReview() {
       mode="new"
       user={user}
       placeName={place.name}
+      onCancel={
+        placeIdParam
+          ? () => router.back() // 장소 시트에서 진입 → 이전 화면으로
+          : () => setPlace(null) // 검색으로 선택 → '장소 검색'으로 복귀
+      }
       onSubmit={async (content, images) => {
-        await createReview({ userId: user.id, placeId: place.id, content, images });
+        const reviewId = await createReview({
+          userId: user.id,
+          placeId: place.id,
+          content,
+          images,
+        });
         toast("기록을 발행했어요.");
-        router.replace("/map");
+        router.replace(
+          `/map?placeId=${place.id}&reviewId=${reviewId}`
+        );
       }}
     />
   );
 }
 
-function PlacePicker({ onPick }: { onPick: (p: Place) => void }) {
+function PlacePicker({
+  onPick,
+}: {
+  onPick: (p: Place) => void | Promise<void>;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [keyword, setKeyword] = useState("");
@@ -83,9 +114,10 @@ function PlacePicker({ onPick }: { onPick: (p: Place) => void }) {
   const pick = async (p: KakaoPlace) => {
     setPicking(true);
     try {
-      onPick(await upsertPlace(p));
+      await onPick(await upsertPlace(p));
     } catch {
       toast("일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
       setPicking(false);
     }
   };
@@ -121,11 +153,11 @@ function PlacePicker({ onPick }: { onPick: (p: Place) => void }) {
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {results === null ? (
           <div className="px-2 pt-8 text-sm leading-relaxed text-sub">
-            <p className="font-semibold text-ink">장소를 검색해 보세요</p>
+            <p className="font-semibold text-ink">리뷰를 작성할 장소를 찾아보세요</p>
             <ul className="mt-3 list-disc space-y-1 pl-5">
-              <li>최근에 방문했던 음식점, 카페, 소품샵</li>
-              <li>특별한 날 방문했던 인상적인 장소</li>
-              <li>집, 회사, 학교 주변에서 자주 가는 식당</li>
+              <li>최근에 다녀온 카페, 맛집, 어디든</li>
+              <li>특별했던 날의 그 장소</li>
+              <li>자주 가는 동네 단골집</li>
             </ul>
           </div>
         ) : (

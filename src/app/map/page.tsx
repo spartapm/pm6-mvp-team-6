@@ -1,32 +1,55 @@
 "use client";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useRequireAuth } from "@/lib/useSession";
-import { getMySavedPlaces } from "@/lib/store";
+import {
+  getGroupSavedPlaces,
+  getMyGroups,
+  getMySavedPlaces,
+  getPlace,
+} from "@/lib/store";
 import { isKakaoConfigured, loadKakao, searchPlaces } from "@/lib/kakao";
-import type { KakaoPlace, SavedPlace } from "@/lib/types";
+import type { Group, GroupSavedPlace, KakaoPlace, SavedPlace } from "@/lib/types";
 import { useToast } from "@/components/Toast";
 import { BottomNav } from "@/components/BottomNav";
 import { PlaceSheet } from "@/components/PlaceSheet";
-import { GpsIcon, SearchIcon, StarIcon } from "@/components/icons";
+import { GroupControl } from "@/components/GroupControl";
+import { GpsIcon, SearchIcon } from "@/components/icons";
 import { Spinner } from "@/components/Spinner";
 
 const SEOUL = { lat: 37.5665, lng: 126.978 };
+const ACTIVE_GROUP_KEY = "nyam.activeGroup";
 
-export default function MapPage() {
+type MarkerPlace = SavedPlace | GroupSavedPlace;
+
+function MapView() {
   const { user, ready } = useRequireAuth();
   const toast = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const focusPlaceId = searchParams.get("placeId");
+  const focusReviewId = searchParams.get("reviewId");
+  const consumedFocusRef = useRef(false);
 
   const mapEl = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const overlaysRef = useRef<any[]>([]);
+  const selectedPinRef = useRef<any>(null);
 
   const [keyword, setKeyword] = useState("");
   const [results, setResults] = useState<KakaoPlace[] | null>(null);
   const [searching, setSearching] = useState(false);
+  const [searchNotice, setSearchNotice] = useState<string | null>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const noticeTimer = useRef<number | null>(null);
   const [selected, setSelected] = useState<KakaoPlace | null>(null);
+  const [highlightReviewId, setHighlightReviewId] = useState<string | null>(null);
   const [kakaoReady, setKakaoReady] = useState(false);
+
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
 
   const configured = isKakaoConfigured();
 
@@ -54,17 +77,18 @@ export default function MapPage() {
 
   // 저장된 장소 마커 렌더
   const renderMarkers = useCallback(
-    (places: SavedPlace[], kakao: any) => {
+    (places: MarkerPlace[], kakao: any) => {
       const map = mapRef.current;
       if (!map) return;
       overlaysRef.current.forEach((o) => o.setMap(null));
       overlaysRef.current = [];
 
       places.forEach((p) => {
+        const color = "color" in p ? p.color : undefined;
         const el = document.createElement("div");
         el.style.cursor = "pointer";
         el.style.transform = "translateY(-50%)";
-        el.innerHTML = starSvg(p.star);
+        el.innerHTML = starSvg(p.star, color);
         el.addEventListener("click", () => {
           setResults(null);
           setSelected(p);
@@ -85,16 +109,83 @@ export default function MapPage() {
   const reloadSaved = useCallback(async () => {
     if (!user || !mapRef.current || !window.kakao) return;
     try {
-      const places = await getMySavedPlaces(user.id);
+      const places: MarkerPlace[] = activeGroupId
+        ? await getGroupSavedPlaces(activeGroupId)
+        : await getMySavedPlaces(user.id);
       renderMarkers(places, window.kakao);
     } catch {
       /* 마커 로드 실패는 조용히 무시 */
     }
-  }, [user, renderMarkers]);
+  }, [user, activeGroupId, renderMarkers]);
 
   useEffect(() => {
     if (kakaoReady) reloadSaved();
   }, [kakaoReady, reloadSaved]);
+
+  // 선택한 장소 핀 표시 (검색 선택 / 마커 클릭 시)
+  useEffect(() => {
+    if (!kakaoReady || !mapRef.current || !window.kakao) return;
+    if (selectedPinRef.current) {
+      selectedPinRef.current.setMap(null);
+      selectedPinRef.current = null;
+    }
+    if (!selected) return;
+    const el = document.createElement("div");
+    el.innerHTML = pinSvg();
+    const overlay = new window.kakao.maps.CustomOverlay({
+      position: new window.kakao.maps.LatLng(selected.lat, selected.lng),
+      content: el,
+      yAnchor: 1,
+      zIndex: 10,
+    });
+    overlay.setMap(mapRef.current);
+    selectedPinRef.current = overlay;
+  }, [selected, kakaoReady]);
+
+  // 내 그룹 목록 로드 + 저장된 활성 그룹 복원
+  const reloadGroups = useCallback(async () => {
+    if (!user) return;
+    setGroups(await getMyGroups(user.id));
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const saved = window.localStorage.getItem(ACTIVE_GROUP_KEY);
+    if (saved) setActiveGroupId(saved);
+    reloadGroups();
+  }, [user, reloadGroups]);
+
+  // 그룹 목록 로드 후, 더 이상 속하지 않는 그룹이면 내 지도로 복귀
+  useEffect(() => {
+    if (activeGroupId && !groups.some((g) => g.id === activeGroupId)) {
+      setActiveGroupId(null);
+    }
+  }, [groups, activeGroupId]);
+
+  const selectGroup = useCallback((id: string | null) => {
+    setActiveGroupId(id);
+    if (id) window.localStorage.setItem(ACTIVE_GROUP_KEY, id);
+    else window.localStorage.removeItem(ACTIVE_GROUP_KEY);
+  }, []);
+
+  // 리뷰 발행 직후: 해당 장소 바텀시트 열고 작성한 리뷰로 스크롤
+  useEffect(() => {
+    if (consumedFocusRef.current || !user || !focusPlaceId) return;
+    if (configured && !kakaoReady) return; // 지도 준비 후 이동
+    consumedFocusRef.current = true;
+    (async () => {
+      const place = await getPlace(focusPlaceId);
+      if (place) {
+        setHighlightReviewId(focusReviewId);
+        setSelected(place);
+        if (mapRef.current && window.kakao) {
+          mapRef.current.setLevel(4);
+          mapRef.current.panTo(new window.kakao.maps.LatLng(place.lat, place.lng));
+        }
+      }
+      router.replace("/map");
+    })();
+  }, [user, focusPlaceId, focusReviewId, configured, kakaoReady, router]);
 
   const moveToCurrentLocation = (notify = true) => {
     if (!navigator.geolocation || !mapRef.current || !window.kakao) {
@@ -115,9 +206,28 @@ export default function MapPage() {
     );
   };
 
+  // 검색창 아래 안내 문구 (없으면 null). 잠시 후 자동으로 사라짐.
+  const showNotice = (message: string) => {
+    setSearchNotice(message);
+    if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
+    noticeTimer.current = window.setTimeout(() => setSearchNotice(null), 2600);
+  };
+
+  const clearNotice = () => {
+    setSearchNotice(null);
+    if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
+    };
+  }, []);
+
   const runSearch = async () => {
     const q = keyword.trim();
     if (!q) return;
+    clearNotice();
     setSearching(true);
     try {
       const map = mapRef.current;
@@ -127,12 +237,12 @@ export default function MapPage() {
       const found = await searchPlaces(q, center);
       setResults(found);
       if (found.length === 0) {
-        toast("검색 결과가 없어요");
+        showNotice("검색 결과가 없어요");
       } else if (map && window.kakao) {
         map.panTo(new window.kakao.maps.LatLng(found[0].lat, found[0].lng));
       }
     } catch {
-      toast("일치하는 장소가 없어요. 다른 키워드로 검색해보세요!");
+      showNotice("검색에 실패했어요. 다른 키워드로 검색해보세요!");
     } finally {
       setSearching(false);
     }
@@ -141,6 +251,7 @@ export default function MapPage() {
   const pickResult = (p: KakaoPlace) => {
     setResults(null);
     setKeyword("");
+    clearNotice();
     if (mapRef.current && window.kakao) {
       mapRef.current.setLevel(4);
       mapRef.current.panTo(new window.kakao.maps.LatLng(p.lat, p.lng));
@@ -178,13 +289,38 @@ export default function MapPage() {
             <SearchIcon className="h-5 w-5 text-sub" />
             <input
               value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
+              onChange={(e) => {
+                setKeyword(e.target.value);
+                if (searchNotice) clearNotice();
+              }}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setTimeout(() => setSearchFocused(false), 120)}
               onKeyDown={(e) => e.key === "Enter" && runSearch()}
               placeholder="주소, 상호명 검색"
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-sub"
             />
             {searching && <Spinner className="text-key" />}
           </div>
+
+          {/* 검색 진입 안내 (검색 전 빈 상태) */}
+          {searchFocused && !searchNotice && keyword.trim() === "" && !results && (
+            <div className="animate-fade-up mt-2 rounded-2xl border border-line bg-white/95 px-5 py-4 text-sm leading-relaxed text-sub shadow-card backdrop-blur">
+              <p className="font-semibold text-ink">장소를 검색해 보세요</p>
+              <ul className="mt-3 list-disc space-y-1 pl-5">
+                <li>최근에 다녀온 카페, 맛집, 어디든</li>
+                <li>자주 가는 동네 단골집</li>
+                <li>저장만 해뒀던 그곳</li>
+                <li>친구가 추천해준 곳</li>
+              </ul>
+            </div>
+          )}
+
+          {/* 검색 안내 문구 (검색창 바로 아래) */}
+          {searchNotice && (
+            <div className="animate-fade-up mt-2 rounded-2xl bg-key/95 px-4 py-3 text-center text-sm font-medium text-white shadow-card">
+              {searchNotice}
+            </div>
+          )}
 
           {/* 검색 결과 */}
           {results && results.length > 0 && (
@@ -205,6 +341,17 @@ export default function MapPage() {
           )}
         </div>
 
+        {/* 그룹 (공유 지도) */}
+        {configured && (
+          <GroupControl
+            userId={user.id}
+            groups={groups}
+            activeGroupId={activeGroupId}
+            onSelect={selectGroup}
+            onChanged={reloadGroups}
+          />
+        )}
+
         {/* GPS 버튼 */}
         {configured && (
           <button
@@ -223,7 +370,11 @@ export default function MapPage() {
         <PlaceSheet
           kakaoPlace={selected}
           userId={user.id}
-          onClose={() => setSelected(null)}
+          highlightReviewId={highlightReviewId}
+          onClose={() => {
+            setSelected(null);
+            setHighlightReviewId(null);
+          }}
           onChanged={reloadSaved}
         />
       )}
@@ -231,9 +382,32 @@ export default function MapPage() {
   );
 }
 
-// 마커용 별 SVG
-function starSvg(star: "gray" | "fill"): string {
-  const fill = star === "fill" ? "#ffc83d" : "#9aa0a6";
+export default function MapPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-1 items-center justify-center">
+          <Spinner className="text-key" />
+        </div>
+      }
+    >
+      <MapView />
+    </Suspense>
+  );
+}
+
+// 선택한 장소 핀 SVG (물방울 모양, 끝점이 좌표를 가리킴)
+function pinSvg(): string {
+  return `<svg width="32" height="40" viewBox="0 0 24 30" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,0.35))">
+    <path d="M12 0C5.6 0 .5 5 .5 11.2.5 19.3 12 30 12 30s11.5-10.7 11.5-18.8C23.5 5 18.4 0 12 0z"
+      fill="#111111" stroke="#ffffff" stroke-width="1.2"/>
+    <circle cx="12" cy="11.2" r="4.1" fill="#ffffff"/>
+  </svg>`;
+}
+
+// 마커용 별 SVG (color 지정 시 멤버 색상으로 표시 = 그룹 모드)
+function starSvg(star: "gray" | "fill", color?: string): string {
+  const fill = color ?? (star === "fill" ? "#ffc83d" : "#9aa0a6");
   return `<svg width="30" height="30" viewBox="0 0 24 24" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))">
     <path d="M12 2.6l2.9 5.88 6.49.94-4.7 4.58 1.11 6.46L12 17.9l-5.8 3.05 1.1-6.46-4.69-4.58 6.49-.94L12 2.6z"
       fill="${fill}" stroke="#ffffff" stroke-width="1.4" stroke-linejoin="round"/>

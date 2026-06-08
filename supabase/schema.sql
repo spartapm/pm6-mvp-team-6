@@ -72,6 +72,25 @@ create table if not exists likes (
   unique (user_id, review_id)
 );
 
+-- ---------- 그룹 (공유 지도) ----------
+create table if not exists groups (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,                     -- 그룹 이름
+  invite_code text not null unique,       -- 초대 코드 (6자)
+  owner_id uuid not null references users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+-- ---------- 그룹 멤버 ----------
+create table if not exists group_members (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references groups(id) on delete cascade,
+  user_id uuid not null references users(id) on delete cascade,
+  color text not null,                    -- 지도 마커 색상 (멤버별)
+  joined_at timestamptz not null default now(),
+  unique (group_id, user_id)
+);
+
 -- ---------- 인덱스 ----------
 create index if not exists idx_bookmarks_user on bookmarks(user_id);
 create index if not exists idx_reviews_user on reviews(user_id);
@@ -79,6 +98,9 @@ create index if not exists idx_reviews_place on reviews(place_id);
 create index if not exists idx_reviews_created on reviews(created_at desc);
 create index if not exists idx_review_images_review on review_images(review_id);
 create index if not exists idx_likes_review on likes(review_id);
+create index if not exists idx_group_members_group on group_members(group_id);
+create index if not exists idx_group_members_user on group_members(user_id);
+create index if not exists idx_groups_invite on groups(invite_code);
 
 -- ---------- RLS (MVP 데모용: anon 전체 허용) ----------
 -- ※ 운영 단계에서는 사용자별 정책으로 강화하세요.
@@ -88,11 +110,13 @@ alter table bookmarks enable row level security;
 alter table reviews enable row level security;
 alter table review_images enable row level security;
 alter table likes enable row level security;
+alter table groups enable row level security;
+alter table group_members enable row level security;
 
 do $$
 declare t text;
 begin
-  foreach t in array array['users','places','bookmarks','reviews','review_images','likes']
+  foreach t in array array['users','places','bookmarks','reviews','review_images','likes','groups','group_members']
   loop
     execute format('drop policy if exists "anon all %1$s" on %1$s;', t);
     execute format('create policy "anon all %1$s" on %1$s for all to anon, authenticated using (true) with check (true);', t);

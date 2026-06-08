@@ -36,7 +36,7 @@ export function HeartIcon({
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden>
       <path
-        d="M12 21s-7.2-4.35-9.6-8.4C.9 9.9 2.1 6.6 5.4 6.1c1.9-.3 3.6.7 4.6 2.1 1-1.4 2.7-2.4 4.6-2.1 3.3.5 4.5 3.8 3 6.5C19.2 16.65 12 21 12 21z"
+        d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
         fill={filled ? "#ff4d4f" : "none"}
         stroke={filled ? "#ff4d4f" : "#9aa0a6"}
         strokeWidth="1.6"
@@ -130,11 +130,48 @@ export function SettingsIcon({ className = "" }: IconProps) {
     <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden>
       <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.7" />
       <path
-        d="M12 2.8l1.2 2.2 2.5-.3 1 2.3 2.2 1.2-.3 2.5 .3 2.5-2.2 1.2-1 2.3-2.5-.3L12 21.2l-1.2-2.2-2.5.3-1-2.3-2.2-1.2.3-2.5-.3-2.5 2.2-1.2 1-2.3 2.5.3L12 2.8z"
+        d="M19.4 13a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
         stroke="currentColor"
-        strokeWidth="1.4"
+        strokeWidth="1.5"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+export function PeopleIcon({ className = "" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
+      <circle cx="9" cy="8.2" r="3.3" />
+      <path d="M2.8 19.2c.3-3.4 2.9-5.6 6.2-5.6s5.9 2.2 6.2 5.6z" />
+      <circle cx="17.2" cy="9" r="2.5" opacity="0.92" />
+      <path d="M15.6 13.9c2.6.1 4.6 1.9 5.6 4.6" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" opacity="0.92" />
+    </svg>
+  );
+}
+
+export function PersonPlusIcon({ className = "" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
+      <circle cx="9.5" cy="8" r="3.4" />
+      <path d="M3 19.4c.3-3.6 3-5.9 6.5-5.9 1.2 0 2.3.3 3.3.7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M18.5 13.5v6M15.5 16.5h6" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function ChevronDownIcon({ className = "" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden>
+      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function CheckIcon({ className = "" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden>
+      <path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

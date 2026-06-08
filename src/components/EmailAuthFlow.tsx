@@ -20,6 +20,7 @@ export function EmailAuthFlow({ mode }: { mode: "login" | "signup" }) {
   const timerRef = useRef<number | null>(null);
 
   const valid = isValidEmail(email);
+  const showEmailError = email.trim().length > 0 && !valid;
 
   useEffect(() => {
     return () => {
@@ -116,8 +117,13 @@ export function EmailAuthFlow({ mode }: { mode: "login" | "signup" }) {
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && valid && !loading && sendMail()}
               placeholder="jam@gmail.com"
-              className="mt-2 w-full border-b border-line bg-transparent pb-2 text-lg outline-none placeholder:text-disabled focus:border-key"
+              className={`mt-2 w-full border-b bg-transparent pb-2 text-lg outline-none placeholder:text-disabled ${
+                showEmailError ? "border-like focus:border-like" : "border-line focus:border-key"
+              }`}
             />
+            {showEmailError && (
+              <p className="mt-2 text-xs text-like">올바른 이메일 형식으로 입력해 주세요.</p>
+            )}
           </div>
 
           <div className="mt-auto">

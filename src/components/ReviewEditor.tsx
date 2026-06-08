@@ -21,6 +21,7 @@ export function ReviewEditor({
   initialContent = "",
   initialImages = [],
   onSubmit,
+  onCancel,
 }: {
   mode: "new" | "edit";
   user: User;
@@ -28,6 +29,7 @@ export function ReviewEditor({
   initialContent?: string;
   initialImages?: string[];
   onSubmit: (content: string, images: string[]) => Promise<void>;
+  onCancel?: () => void;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -89,7 +91,10 @@ export function ReviewEditor({
     <div className="flex flex-1 flex-col">
       {/* 상단 바 */}
       <header className="flex items-center justify-between border-b border-line px-4 py-3">
-        <button onClick={() => router.back()} className="text-sm text-sub">
+        <button
+          onClick={() => (onCancel ? onCancel() : router.back())}
+          className="text-sm text-sub"
+        >
           취소
         </button>
         <h1 className="text-base font-semibold">
