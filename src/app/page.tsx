@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { getSession } from "@/lib/store";
 import { NyamLogo } from "@/components/NyamLogo";
 
-const ONBOARDING_SEEN_KEY = "nyam.onboarding.seen";
+const ONBOARDING_HIDE_KEY = "nyam.onboarding.hide";
 
 export default function RootPage() {
   const router = useRouter();
@@ -14,8 +14,8 @@ export default function RootPage() {
       router.replace("/map");
       return;
     }
-    const seen = window.localStorage.getItem(ONBOARDING_SEEN_KEY) === "1";
-    router.replace(seen ? "/login" : "/onboarding");
+    const hidden = window.localStorage.getItem(ONBOARDING_HIDE_KEY) === "1";
+    router.replace(hidden ? "/login" : "/onboarding");
   }, [router]);
 
   return (

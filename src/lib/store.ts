@@ -3,6 +3,8 @@
 import { supabase, STORAGE_BUCKET } from "./supabase";
 import {
   GROUP_COLORS,
+  GROUP_MAX_COUNT,
+  GROUP_MEMBER_MAX,
   type Gender,
   type Group,
   type GroupSavedPlace,
@@ -582,9 +584,17 @@ export async function createGroup(
   name: string
 ): Promise<
   | { ok: true; group: Group }
-  | { ok: false; reason: "setup" | "user_missing" | "error" }
+  | { ok: false; reason: "setup" | "user_missing" | "too_many_groups" | "error" }
 > {
   const trimmedName = name.trim();
+  const { count: myGroupCount } = await supabase
+    .from("group_members")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  if ((myGroupCount ?? 0) >= GROUP_MAX_COUNT) {
+    return { ok: false, reason: "too_many_groups" };
+  }
+
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = genInviteCode();
     const { data, error } = await supabase
@@ -634,10 +644,18 @@ export async function joinByInviteCode(
   code: string
 ): Promise<
   | { ok: true; group: Group }
-  | { ok: false; reason: "not_found" | "already" | "error" }
+  | { ok: false; reason: "not_found" | "already" | "too_many_groups" | "full" | "error" }
 > {
   const c = code.trim().toUpperCase();
   if (!c) return { ok: false, reason: "not_found" };
+
+  const { count: myGroupCount } = await supabase
+    .from("group_members")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  if ((myGroupCount ?? 0) >= GROUP_MAX_COUNT) {
+    return { ok: false, reason: "too_many_groups" };
+  }
 
   const { data: g } = await supabase
     .from("groups")
@@ -654,6 +672,9 @@ export async function joinByInviteCode(
     .eq("user_id", userId)
     .maybeSingle();
   if (existing) return { ok: false, reason: "already" };
+  if ((await memberCount(group.id)) >= GROUP_MEMBER_MAX) {
+    return { ok: false, reason: "full" };
+  }
 
   const color = await nextGroupColor(group.id);
   const { error } = await supabase

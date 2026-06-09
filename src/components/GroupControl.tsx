@@ -7,7 +7,7 @@ import {
   leaveGroup,
   renameGroup,
 } from "@/lib/store";
-import { type Group } from "@/lib/types";
+import { GROUP_MAX_COUNT, type Group } from "@/lib/types";
 import { useToast } from "./Toast";
 import { Spinner } from "./Spinner";
 import {
@@ -110,6 +110,10 @@ export function GroupControl({
                   icon={<PersonPlusIcon className="h-4 w-4" />}
                   label="그룹 만들기"
                   onClick={() => {
+                    if (groups.length >= GROUP_MAX_COUNT) {
+                      toast(`그룹은 최대 ${GROUP_MAX_COUNT}개까지 만들 수 있어요.`);
+                      return;
+                    }
                     setExpanded(false);
                     setCreateOpen(true);
                   }}
@@ -118,6 +122,10 @@ export function GroupControl({
                   icon={<PeopleIcon className="h-4 w-4" />}
                   label="초대 코드 입력"
                   onClick={() => {
+                    if (groups.length >= GROUP_MAX_COUNT) {
+                      toast(`그룹은 최대 ${GROUP_MAX_COUNT}개까지 참여할 수 있어요.`);
+                      return;
+                    }
                     setExpanded(false);
                     setJoinOpen(true);
                   }}
@@ -328,6 +336,8 @@ function CreateGroupModal({
           ? "Supabase에 groups.sql이 적용되지 않았어요. DB 스키마를 먼저 적용해 주세요."
           : res.reason === "user_missing"
           ? "세션이 만료되었어요. 다시 로그인한 뒤 시도해 주세요."
+          : res.reason === "too_many_groups"
+          ? `그룹은 최대 ${GROUP_MAX_COUNT}개까지 만들 수 있어요.`
           : "그룹 생성에 실패했어요. 잠시 후 다시 시도해 주세요."
       );
       return;
@@ -375,6 +385,10 @@ function JoinGroupModal({
         ? "유효하지 않은 초대 코드예요. 다시 확인해 주세요."
         : res.reason === "already"
         ? "이미 합류한 그룹이에요."
+        : res.reason === "too_many_groups"
+        ? `그룹은 최대 ${GROUP_MAX_COUNT}개까지 참여할 수 있어요.`
+        : res.reason === "full"
+        ? "이 그룹은 정원(4명)이 가득 찼어요."
         : "합류에 실패했어요. 잠시 후 다시 시도해 주세요."
     );
   };

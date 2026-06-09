@@ -39,6 +39,9 @@ export interface SavedPlace extends Place {
 }
 
 // ---------- 그룹 (공유 지도) ----------
+export const GROUP_MAX_COUNT = 3;
+export const GROUP_MEMBER_MAX = 4;
+
 export interface Group {
   id: string;
   name: string;
@@ -56,14 +59,10 @@ export interface GroupSavedPlace extends Place {
 
 // 그룹 멤버에게 순서대로 배정되는 마커 색상 팔레트
 export const GROUP_COLORS = [
-  "#ff8a3d", // 주황
-  "#ffc83d", // 노랑
-  "#34c759", // 초록
-  "#4d94ff", // 파랑
-  "#5b6cff", // 남보라
-  "#ff5d8f", // 핑크
-  "#9b5de5", // 보라
-  "#00b8a9", // 청록
+  "#000000", // 나(오너) 닉네임
+  "#E99938", // 멤버1
+  "#38AE50", // 멤버2
+  "#388AAE", // 멤버3
 ];
 
 export interface ReviewImage {

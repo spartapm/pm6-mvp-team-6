@@ -407,7 +407,12 @@ function pinSvg(): string {
 
 // 마커용 별 SVG (color 지정 시 멤버 색상으로 표시 = 그룹 모드)
 function starSvg(star: "gray" | "fill", color?: string): string {
-  const fill = color ?? (star === "fill" ? "#ffc83d" : "#9aa0a6");
+  const normalized = (color ?? "").toLowerCase();
+  // 오너(검정 닉네임)의 별은 노랑으로 고정
+  const fill =
+    normalized === "#000000"
+      ? "#ffc83d"
+      : color ?? (star === "fill" ? "#ffc83d" : "#9aa0a6");
   return `<svg width="30" height="30" viewBox="0 0 24 24" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))">
     <path d="M12 2.6l2.9 5.88 6.49.94-4.7 4.58 1.11 6.46L12 17.9l-5.8 3.05 1.1-6.46-4.69-4.58 6.49-.94L12 2.6z"
       fill="${fill}" stroke="#ffffff" stroke-width="1.4" stroke-linejoin="round"/>
