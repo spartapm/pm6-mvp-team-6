@@ -8,7 +8,7 @@ export default function LoginEntryPage() {
     <div className="flex flex-1 flex-col px-6 pb-10 pt-6">
       {/* status bar 여백 */}
       <div className="flex flex-1 flex-col items-center justify-center">
-        <NyamLogo className="text-5xl" />
+        <NyamLogo className="h-12" />
         <p className="mt-4 text-sm text-sub">가고 싶은 곳, 다녀온 곳을 지도에 기록해요</p>
       </div>
 
