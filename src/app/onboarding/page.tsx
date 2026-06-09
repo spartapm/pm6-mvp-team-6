@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getSession } from "@/lib/store";
 
-const ONBOARDING_HIDE_KEY = "nyam.onboarding.hide";
+const ONBOARDING_HIDE_KEY = "nyam.onboarding.hide.v2";
 
 const slides = [
   "/onboarding/slide-1.png",
@@ -16,7 +16,6 @@ const slides = [
 export default function OnboardingPage() {
   const router = useRouter();
   const [index, setIndex] = useState(0);
-  const [hideNextTime, setHideNextTime] = useState(false);
 
   useEffect(() => {
     if (getSession()) router.replace("/map");
@@ -24,11 +23,7 @@ export default function OnboardingPage() {
 
   const finish = () => {
     if (typeof window !== "undefined") {
-      if (hideNextTime) {
-        window.localStorage.setItem(ONBOARDING_HIDE_KEY, "1");
-      } else {
-        window.localStorage.removeItem(ONBOARDING_HIDE_KEY);
-      }
+      window.localStorage.setItem(ONBOARDING_HIDE_KEY, "1");
     }
     router.replace("/login");
   };
@@ -38,10 +33,10 @@ export default function OnboardingPage() {
       <div className="flex-1 overflow-hidden rounded-[26px]">
         <div
           className="flex h-full transition-transform duration-300 ease-out"
-          style={{ width: `${slides.length * 100}%`, transform: `translateX(-${index * (100 / slides.length)}%)` }}
+          style={{ transform: `translateX(-${index * 100}%)` }}
         >
           {slides.map((src) => (
-            <div key={src} className="relative h-full w-full">
+            <div key={src} className="relative h-full w-full shrink-0">
               <Image src={src} alt="온보딩 화면" fill className="object-contain" priority />
             </div>
           ))}
@@ -64,19 +59,20 @@ export default function OnboardingPage() {
         <button
           type="button"
           onClick={finish}
-          className="text-lg font-medium text-[#9fa2a6] underline underline-offset-4"
+          className="text-[#9fa2a6] underline underline-offset-4"
+          style={{
+            fontFamily: '"Noto Sans KR", Pretendard, sans-serif',
+            fontWeight: 400,
+            fontStyle: "normal",
+            fontSize: "11.52px",
+            lineHeight: "100%",
+            letterSpacing: "0",
+            textAlign: "center",
+            verticalAlign: "middle",
+          }}
         >
           건너뛰기
         </button>
-        <label className="flex items-center gap-2 text-sm text-[#9fa2a6]">
-          <input
-            type="checkbox"
-            checked={hideNextTime}
-            onChange={(e) => setHideNextTime(e.target.checked)}
-            className="h-4 w-4 accent-key"
-          />
-          다시보지않기
-        </label>
       </div>
     </div>
   );

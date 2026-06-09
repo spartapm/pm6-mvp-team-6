@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { getSession } from "@/lib/store";
 import { NyamLogo } from "@/components/NyamLogo";
 
-const ONBOARDING_HIDE_KEY = "nyam.onboarding.hide";
+const ONBOARDING_HIDE_KEY = "nyam.onboarding.hide.v2";
 
 export default function RootPage() {
   const router = useRouter();
