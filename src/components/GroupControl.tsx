@@ -323,7 +323,13 @@ function CreateGroupModal({
     const res = await createGroup(userId, n);
     setLoading(false);
     if (!res.ok) {
-      toast("그룹 생성에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      toast(
+        res.reason === "setup"
+          ? "Supabase에 groups.sql이 적용되지 않았어요. DB 스키마를 먼저 적용해 주세요."
+          : res.reason === "user_missing"
+          ? "세션이 만료되었어요. 다시 로그인한 뒤 시도해 주세요."
+          : "그룹 생성에 실패했어요. 잠시 후 다시 시도해 주세요."
+      );
       return;
     }
     onCreated(res.group);

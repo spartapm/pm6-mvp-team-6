@@ -580,23 +580,38 @@ export async function getMyGroups(userId: string): Promise<Group[]> {
 export async function createGroup(
   userId: string,
   name: string
-): Promise<{ ok: true; group: Group } | { ok: false }> {
+): Promise<
+  | { ok: true; group: Group }
+  | { ok: false; reason: "setup" | "user_missing" | "error" }
+> {
+  const trimmedName = name.trim();
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = genInviteCode();
     const { data, error } = await supabase
       .from("groups")
-      .insert({ name: name.trim(), invite_code: code, owner_id: userId })
+      .insert({ name: trimmedName, invite_code: code, owner_id: userId })
       .select(GROUP_SELECT)
       .single();
-    if (error || !data) continue; // 초대 코드 충돌 → 재시도
+    if (error || !data) {
+      const code = (error as { code?: string } | null)?.code;
+      if (code === "23505") continue; // 초대 코드 충돌 → 재시도
+      if (code === "42P01") return { ok: false, reason: "setup" }; // 테이블 없음
+      if (code === "23503") return { ok: false, reason: "user_missing" }; // FK 오류
+      console.error("[createGroup] groups insert failed", error);
+      return { ok: false, reason: "error" };
+    }
     const g = data as GroupRow;
     const color = GROUP_COLORS[0];
     const { error: mErr } = await supabase
       .from("group_members")
       .insert({ group_id: g.id, user_id: userId, color });
     if (mErr) {
+      const mCode = (mErr as { code?: string } | null)?.code;
       await supabase.from("groups").delete().eq("id", g.id);
-      return { ok: false };
+      if (mCode === "42P01") return { ok: false, reason: "setup" };
+      if (mCode === "23503") return { ok: false, reason: "user_missing" };
+      console.error("[createGroup] group_members insert failed", mErr);
+      return { ok: false, reason: "error" };
     }
     return {
       ok: true,
@@ -610,7 +625,7 @@ export async function createGroup(
       },
     };
   }
-  return { ok: false };
+  return { ok: false, reason: "error" };
 }
 
 // 초대 코드로 그룹 합류
