@@ -3,8 +3,8 @@ import "./globals.css";
 import { ToastProvider } from "@/components/Toast";
 
 export const metadata: Metadata = {
-  title: "nyam",
-  description: "장소를 기록하고 공유하는 지도 기반 기록 SNS, nyam",
+  title: "nook",
+  description: "장소를 기록하고 공유하는 지도 기반 기록 SNS, nook",
 };
 
 export const viewport: Viewport = {

@@ -34,6 +34,7 @@ function MapView() {
   const consumedFocusRef = useRef(false);
 
   const mapEl = useRef<HTMLDivElement>(null);
+  const searchAreaRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const overlaysRef = useRef<any[]>([]);
   const selectedPinRef = useRef<any>(null);
@@ -57,12 +58,16 @@ function MapView() {
   useEffect(() => {
     if (!ready || !configured) return;
     let alive = true;
+    const closeResults = () => setResults(null);
     loadKakao()
       .then((kakao) => {
         if (!alive || !mapEl.current) return;
         const center = new kakao.maps.LatLng(SEOUL.lat, SEOUL.lng);
         const map = new kakao.maps.Map(mapEl.current, { center, level: 7 });
         map.setMaxLevel(11);
+        kakao.maps.event.addListener(map, "dragstart", closeResults);
+        kakao.maps.event.addListener(map, "zoom_changed", closeResults);
+        kakao.maps.event.addListener(map, "click", closeResults);
         mapRef.current = map;
         setKakaoReady(true);
         // 현재 위치로 이동 시도
@@ -71,9 +76,28 @@ function MapView() {
       .catch(() => toast("지도를 불러오지 못했어요. 잠시 후 다시 시도해 주세요."));
     return () => {
       alive = false;
+      const map = mapRef.current;
+      if (map && window.kakao) {
+        window.kakao.maps.event.removeListener(map, "dragstart", closeResults);
+        window.kakao.maps.event.removeListener(map, "zoom_changed", closeResults);
+        window.kakao.maps.event.removeListener(map, "click", closeResults);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, configured]);
+
+  // 검색 결과 리스트 바깥 터치 시 닫기
+  useEffect(() => {
+    if (!results || results.length === 0) return;
+    const onPointerDown = (ev: PointerEvent) => {
+      const target = ev.target as Node | null;
+      if (!target) return;
+      if (searchAreaRef.current?.contains(target)) return;
+      setResults(null);
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [results]);
 
   // 저장된 장소 마커 렌더
   const renderMarkers = useCallback(
@@ -284,7 +308,10 @@ function MapView() {
         )}
 
         {/* 검색창 */}
-        <div className="absolute inset-x-0 top-0 z-20 px-4 pt-3">
+        <div
+          ref={searchAreaRef}
+          className="absolute inset-x-0 top-0 z-20 px-4 pt-3"
+        >
           <div className="flex items-center gap-2 rounded-2xl border border-line bg-white/95 px-4 py-2.5 shadow-card backdrop-blur">
             <SearchIcon className="h-5 w-5 text-sub" />
             <input
