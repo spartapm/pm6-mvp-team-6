@@ -64,7 +64,7 @@ export default function ProfilePage() {
           <p className="mt-3 text-lg font-bold">{user.nickname}</p>
 
           <div className="mt-5 flex w-full max-w-[260px] items-center justify-around">
-            <Stat state="gray" label="빈 별" value={counts.bookmark} />
+            <Stat state="gray" label="회색 별" value={counts.bookmark} />
             <span className="h-8 w-px bg-line" />
             <Stat state="fill" label="채운 별" value={counts.review} />
           </div>

@@ -8,6 +8,8 @@ export function NyamLogo({ className = "" }: { className?: string }) {
       width={300}
       height={104}
       priority
+      quality={100}
+      unoptimized
       className={`h-10 w-auto object-contain ${className}`}
     />
   );

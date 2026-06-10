@@ -35,9 +35,17 @@ export default function OnboardingPage() {
           className="flex h-full transition-transform duration-300 ease-out"
           style={{ transform: `translateX(-${index * 100}%)` }}
         >
-          {slides.map((src) => (
-            <div key={src} className="relative h-full w-full shrink-0">
-              <Image src={src} alt="온보딩 화면" fill className="object-contain" priority />
+          {slides.map((src, i) => (
+            <div key={src} className="flex h-full w-full shrink-0 items-center justify-center">
+              <Image
+                src={src}
+                alt="온보딩 화면"
+                width={406}
+                height={883}
+                priority={i === 0}
+                unoptimized
+                className="h-full w-auto max-w-full object-contain"
+              />
             </div>
           ))}
         </div>
