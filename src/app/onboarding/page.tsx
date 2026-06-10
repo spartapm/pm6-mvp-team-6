@@ -21,6 +21,13 @@ export default function OnboardingPage() {
     if (getSession()) router.replace("/map");
   }, [router]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setIndex((prev) => (prev + 1) % slides.length);
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const finish = () => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(ONBOARDING_HIDE_KEY, "1");
@@ -29,14 +36,17 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#f6f7f8] px-4 pb-10 pt-4 sm:min-h-[calc(100vh-3rem)]">
-      <div className="flex-1 overflow-hidden rounded-[26px]">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#f6f7f8] px-4 pb-6 pt-0">
+      <div className="min-h-0 flex-1 overflow-hidden rounded-[26px]">
         <div
           className="flex h-full transition-transform duration-300 ease-out"
           style={{ transform: `translateX(-${index * 100}%)` }}
         >
           {slides.map((src, i) => (
-            <div key={src} className="flex h-full w-full shrink-0 items-center justify-center">
+            <div
+              key={src}
+              className="flex h-full w-full shrink-0 items-center justify-center overflow-hidden"
+            >
               <Image
                 src={src}
                 alt="온보딩 화면"
@@ -44,14 +54,14 @@ export default function OnboardingPage() {
                 height={883}
                 priority={i === 0}
                 unoptimized
-                className="h-full w-auto max-w-full object-contain"
+                className="h-auto max-h-full w-full object-contain"
               />
             </div>
           ))}
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-center gap-2">
+      <div className="mt-3 flex items-center justify-center gap-2">
         {slides.map((_, i) => (
           <button
             type="button"
@@ -63,7 +73,7 @@ export default function OnboardingPage() {
         ))}
       </div>
 
-      <div className="mt-4 flex flex-col items-center gap-2">
+      <div className="mt-2 flex flex-col items-center gap-2">
         <button
           type="button"
           onClick={finish}
