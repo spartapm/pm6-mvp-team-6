@@ -50,8 +50,8 @@ export default function OnboardingPage() {
               <Image
                 src={src}
                 alt="온보딩 화면"
-                width={406}
-                height={883}
+                width={404}
+                height={881}
                 priority={i === 0}
                 unoptimized
                 className="h-full w-auto object-contain"
