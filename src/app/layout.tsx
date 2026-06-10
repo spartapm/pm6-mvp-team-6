@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ToastProvider } from "@/components/Toast";
+import { AppFrame } from "@/components/AppFrame";
 
 export const metadata: Metadata = {
   title: "nook",
@@ -28,10 +29,9 @@ export default function RootLayout({
         />
       </head>
       <body>
-        {/* 모바일 전용: 가운데 정렬된 폰 너비 프레임 */}
-        <div className="relative mx-auto flex min-h-screen w-full max-w-[420px] flex-col bg-white sm:my-6 sm:min-h-[calc(100vh-3rem)] sm:rounded-[28px] sm:shadow-frame sm:overflow-hidden">
-          <ToastProvider>{children}</ToastProvider>
-        </div>
+        <ToastProvider>
+          <AppFrame>{children}</AppFrame>
+        </ToastProvider>
       </body>
     </html>
   );

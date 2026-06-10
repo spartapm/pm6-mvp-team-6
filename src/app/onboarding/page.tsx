@@ -36,8 +36,8 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#f6f7f8] px-4 pb-6 pt-0">
-      <div className="min-h-0 flex-1 overflow-hidden rounded-[26px]">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#f6f7f8] pb-4 pt-0">
+      <div className="min-h-0 flex-1 overflow-hidden">
         <div
           className="flex h-full transition-transform duration-300 ease-out"
           style={{ transform: `translateX(-${index * 100}%)` }}
@@ -54,7 +54,7 @@ export default function OnboardingPage() {
                 height={883}
                 priority={i === 0}
                 unoptimized
-                className="h-auto max-h-full w-full object-contain"
+                className="h-full w-auto object-contain"
               />
             </div>
           ))}
