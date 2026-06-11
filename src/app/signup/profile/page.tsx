@@ -17,6 +17,7 @@ import { Avatar } from "@/components/Avatar";
 import { CameraIcon, ChevronLeftIcon } from "@/components/icons";
 
 const GENDERS: Gender[] = ["female", "male", "none"];
+const ONBOARDING_HIDE_KEY = "nyam.onboarding.hide.v2";
 
 function ProfileSetup() {
   const router = useRouter();
@@ -92,7 +93,9 @@ function ProfileSetup() {
         );
         return;
       }
-      router.replace("/map");
+      // 회원가입 직후에는 온보딩을 한번 보여준다.
+      window.localStorage.removeItem(ONBOARDING_HIDE_KEY);
+      router.replace("/onboarding?from=signup");
     } finally {
       setSubmitting(false);
     }

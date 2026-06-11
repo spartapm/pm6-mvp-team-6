@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getSession } from "@/lib/store";
 
@@ -15,11 +15,13 @@ const slides = [
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [index, setIndex] = useState(0);
+  const fromSignup = searchParams.get("from") === "signup";
 
   useEffect(() => {
-    if (getSession()) router.replace("/map");
-  }, [router]);
+    if (getSession() && !fromSignup) router.replace("/map");
+  }, [router, fromSignup]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -32,7 +34,7 @@ export default function OnboardingPage() {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(ONBOARDING_HIDE_KEY, "1");
     }
-    router.replace("/login");
+    router.replace(fromSignup ? "/map" : "/login");
   };
 
   return (
