@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { getSession } from "@/lib/store";
 import { NyamLogo } from "@/components/NyamLogo";
 
@@ -14,7 +14,7 @@ const slides = [
   "/onboarding/slide-3.png",
 ];
 
-export default function OnboardingPage() {
+function OnboardingView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [index, setIndex] = useState(0);
@@ -99,5 +99,13 @@ export default function OnboardingPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={null}>
+      <OnboardingView />
+    </Suspense>
   );
 }
