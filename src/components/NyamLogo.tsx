@@ -1,10 +1,10 @@
 export function NyamLogo({ className = "" }: { className?: string }) {
   return (
     <img
-      src="/nook-logo-v3.png?v=20260611-0042"
+      src="/onboarding/nook_logo.png?v=20260611-0132"
       alt="nook"
-      width={1024}
-      height={355}
+      width={3506}
+      height={1218}
       className={`h-10 w-auto object-contain ${className}`}
     />
   );
