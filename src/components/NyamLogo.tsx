@@ -1,15 +1,10 @@
-import Image from "next/image";
-
 export function NyamLogo({ className = "" }: { className?: string }) {
   return (
-    <Image
-      src="/nook-logo-v2.png"
+    <img
+      src="/nook-logo-v2.png?v=20260610-2342"
       alt="nook"
       width={1024}
       height={355}
-      priority
-      quality={100}
-      unoptimized
       className={`h-10 w-auto object-contain ${className}`}
     />
   );
