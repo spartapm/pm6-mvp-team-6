@@ -3,10 +3,10 @@ import Image from "next/image";
 export function NyamLogo({ className = "" }: { className?: string }) {
   return (
     <Image
-      src="/nyam-logo.png"
+      src="/nook-logo-v2.png"
       alt="nook"
-      width={300}
-      height={104}
+      width={1024}
+      height={355}
       priority
       quality={100}
       unoptimized

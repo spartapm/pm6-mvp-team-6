@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getSession } from "@/lib/store";
+import { NyamLogo } from "@/components/NyamLogo";
 
 const ONBOARDING_HIDE_KEY = "nyam.onboarding.hide.v2";
 
@@ -38,7 +39,10 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#f6f7f8] pb-4 pt-0">
+    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-[#f6f7f8] pb-4 pt-0">
+      <div className="pointer-events-none absolute left-1/2 top-5 z-20 -translate-x-1/2 rounded-full bg-[#f6f7f8] px-3 py-1">
+        <NyamLogo className="h-4 opacity-60" />
+      </div>
       <div className="min-h-0 flex-1 overflow-hidden">
         <div
           className="flex h-full transition-transform duration-300 ease-out"
